@@ -12,11 +12,9 @@ resource "azurerm_container_registry" "spiritops" {
   public_network_access_enabled = true
 }
 
-resource "azurerm_container_app_environment" "spiritops_container_app_env" {
-  name                       = "spiritops-container-app-env"
-  resource_group_name        = azurerm_resource_group.migrate_scope.name
-  location                   = "southindia"
-  log_analytics_workspace_id = "/subscriptions/be1b0fcb-1e30-4142-bb0c-ff52f7a1a0e5/resourceGroups/AICloudBuilder/providers/Microsoft.OperationalInsights/workspaces/workspaceaicloudbuilder9db5"
+resource "azurerm_dns_zone" "spiritops_in" {
+  name                = "spiritops.in"
+  resource_group_name = azurerm_resource_group.migrate_scope.name
 }
 
 resource "azurerm_log_analytics_workspace" "workspaceaicloudbuilder9db5" {
@@ -27,59 +25,20 @@ resource "azurerm_log_analytics_workspace" "workspaceaicloudbuilder9db5" {
   retention_in_days   = 30
 }
 
+resource "azurerm_container_app_environment" "spiritops_container_app_env" {
+  name                       = "spiritops-container-app-env"
+  resource_group_name        = azurerm_resource_group.migrate_scope.name
+  location                   = "southindia"
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.workspaceaicloudbuilder9db5.id
+}
+
 resource "azurerm_container_app" "spiritops_app" {
   name                         = "spiritops-app"
   resource_group_name          = azurerm_resource_group.migrate_scope.name
   container_app_environment_id = azurerm_container_app_environment.spiritops_container_app_env.id
   revision_mode                = "Single"
-  workload_profile_name        = "Consumption"
-
-  secret {
-    name  = "spiritopsazurecrio-spiritops"
-    value = "..."
-  }
-
-  secret {
-    name  = "bitwarden-access-token"
-    value = "..."
-  }
-
-  secret {
-    name  = "bitwarden-project-id"
-    value = "..."
-  }
-
-  secret {
-    name  = "database-url"
-    value = "..."
-  }
-
-  secret {
-    name  = "jwt-secret"
-    value = "..."
-  }
-
-  secret {
-    name  = "openai-api-key"
-    value = "..."
-  }
-
-  ingress {
-    external_enabled = true
-    target_port                = 0
-    transport                  = "auto"
-    allow_insecure_connections = false
-
-    traffic_weight {
-      percentage      = 100
-      latest_revision = true
-    }
-  }
 
   template {
-    min_replicas = 4
-    max_replicas = 10
-
     container {
       name   = "spiritops-app"
       image  = "spiritops.azurecr.io/spiritops-app:284"
@@ -90,32 +49,26 @@ resource "azurerm_container_app" "spiritops_app" {
         name  = "NODE_ENV"
         value = "production"
       }
-
       env {
         name  = "PORT"
         value = "9005"
       }
-
       env {
         name        = "DATABASE_URL"
         secret_name = "database-url"
       }
-
       env {
         name        = "JWT_SECRET"
         secret_name = "jwt-secret"
       }
-
       env {
         name        = "OPENAI_API_KEY"
         secret_name = "openai-api-key"
       }
-
       env {
         name        = "BITWARDEN_ACCESS_TOKEN"
         secret_name = "bitwarden-access-token"
       }
-
       env {
         name        = "BITWARDEN_PROJECT_ID"
         secret_name = "bitwarden-project-id"
@@ -149,10 +102,51 @@ resource "azurerm_container_app" "spiritops_app" {
         failure_count_threshold = 240
       }
     }
-  }
-}
 
-resource "azurerm_dns_zone" "spiritops_in" {
-  name                = "spiritops.in"
-  resource_group_name = azurerm_resource_group.migrate_scope.name
+    min_replicas = 4
+    max_replicas = 10
+  }
+
+  ingress {
+    target_port                = 23040
+    external_enabled           = true
+    transport                  = "auto"
+    allow_insecure_connections = false
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  secret {
+    name  = "database-url"
+    value = "..."
+  }
+  secret {
+    name  = "jwt-secret"
+    value = "..."
+  }
+  secret {
+    name  = "openai-api-key"
+    value = "..."
+  }
+  secret {
+    name  = "bitwarden-access-token"
+    value = "..."
+  }
+  secret {
+    name  = "bitwarden-project-id"
+    value = "..."
+  }
+  secret {
+    name  = "spiritopsazurecrio-spiritops"
+    value = "..."
+  }
+
+  registry {
+    server             = "spiritops.azurecr.io"
+    username           = "spiritops"
+    password_secret_ref = "spiritopsazurecrio-spiritops"
+  }
 }
