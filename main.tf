@@ -4,11 +4,11 @@ resource "azurerm_resource_group" "migrate_scope" {
 }
 
 resource "azurerm_container_registry" "spiritops" {
-  name                         = "spiritops"
-  resource_group_name          = azurerm_resource_group.migrate_scope.name
-  location                     = "southindia"
-  sku                          = "Basic"
-  admin_enabled                = true
+  name                          = "spiritops"
+  resource_group_name           = azurerm_resource_group.migrate_scope.name
+  location                      = "southindia"
+  sku                           = "Basic"
+  admin_enabled                 = true
   public_network_access_enabled = true
 }
 
@@ -18,11 +18,6 @@ resource "azurerm_log_analytics_workspace" "workspaceaicloudbuilder9db5" {
   location            = "southindia"
   sku                 = "PerGB2018"
   retention_in_days   = 30
-}
-
-resource "azurerm_dns_zone" "spiritops_in" {
-  name                = "spiritops.in"
-  resource_group_name = azurerm_resource_group.migrate_scope.name
 }
 
 resource "azurerm_container_app_environment" "spiritops_container_app_env" {
@@ -35,26 +30,9 @@ resource "azurerm_container_app_environment" "spiritops_container_app_env" {
 resource "azurerm_container_app" "spiritops_app" {
   name                         = "spiritops-app"
   resource_group_name          = azurerm_resource_group.migrate_scope.name
-  container_app_environment_id = azurerm_container_app_environment.spiritops_container_app_env.id
+  container_app_environment_id = "/subscriptions/be1b0fcb-1e30-4142-bb0c-ff52f7a1a0e5/resourceGroups/AICloudBuilder/providers/Microsoft.App/managedEnvironments/spiritops-container-app-env"
   revision_mode                = "Single"
   workload_profile_name        = "Consumption"
-
-  ingress {
-    target_port                = 23040
-    external_enabled           = true
-    transport                  = "Auto"
-    allow_insecure_connections = false
-    traffic_weight {
-      percentage      = 100
-      latest_revision = true
-    }
-  }
-
-  registry {
-    server               = "spiritops.azurecr.io"
-    username             = "spiritops"
-    password_secret_name = "spiritopsazurecrio-spiritops"
-  }
 
   secret {
     name  = "spiritopsazurecrio-spiritops"
@@ -86,11 +64,29 @@ resource "azurerm_container_app" "spiritops_app" {
     value = "..."
   }
 
+  ingress {
+    target_port = 23040
+    external_enabled = true
+    transport = "auto"
+    allow_insecure_connections = false
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  registry {
+    server               = "spiritops.azurecr.io"
+    username             = "spiritops"
+    password_secret_name = "spiritopsazurecrio-spiritops"
+  }
+
   template {
     container {
-      name  = "spiritops-app"
-      image = "spiritops.azurecr.io/spiritops-app:284"
-      cpu   = 0.5
+      name   = "spiritops-app"
+      image  = "spiritops.azurecr.io/spiritops-app:284"
+      cpu    = 0.5
       memory = "1Gi"
 
       env {
@@ -135,6 +131,7 @@ resource "azurerm_container_app" "spiritops_app" {
         interval_seconds         = 10
         timeout                  = 5
         failure_count_threshold  = 3
+        success_count_threshold  = 1
       }
 
       readiness_probe {
@@ -154,10 +151,16 @@ resource "azurerm_container_app" "spiritops_app" {
         interval_seconds         = 1
         timeout                  = 3
         failure_count_threshold  = 240
+        success_count_threshold  = 1
       }
     }
 
     min_replicas = 4
     max_replicas = 10
   }
+}
+
+resource "azurerm_dns_zone" "spiritops_in" {
+  name                = "spiritops.in"
+  resource_group_name = azurerm_resource_group.migrate_scope.name
 }
