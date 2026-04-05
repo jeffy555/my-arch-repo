@@ -1,144 +1,84 @@
 resource "azurerm_resource_group" "migrate_scope" {
-  name     = "AICloudBuilder"
-  location = "southindia"
+  name     = "myresume-live-rg"
+  location = "centralindia"
 }
 
-resource "azurerm_container_registry" "spiritops" {
-  name                          = "spiritops"
-  resource_group_name           = azurerm_resource_group.migrate_scope.name
-  location                      = "southindia"
-  sku                           = "Basic"
-  admin_enabled                 = true
-  public_network_access_enabled = true
+resource "azurerm_storage_account" "preacherjefferson" {
+  name                     = "preacherjefferson"
+  resource_group_name      = azurerm_resource_group.migrate_scope.name
+  location                 = "centralindia"
+  account_tier             = "Standard"
+  account_replication_type = "RAGRS"
+  https_traffic_only_enabled = true
+  allow_nested_items_to_be_public = true
+  shared_access_key_enabled = true
+  min_tls_version          = "TLS1_2"
+  access_tier              = "Hot"
 }
 
-resource "azurerm_log_analytics_workspace" "workspaceaicloudbuilder9db5" {
-  name                = "workspaceaicloudbuilder9db5"
+resource "azurerm_virtual_network" "myresume_live_rg_vnet" {
+  name                = "myresume-live-rg-vnet"
   resource_group_name = azurerm_resource_group.migrate_scope.name
-  location            = "southindia"
-  sku                 = "PerGB2018"
-  retention_in_days   = 30
+  location            = "centralindia"
+  address_space       = ["10.224.0.0/12"]
 }
 
-resource "azurerm_container_app_environment" "spiritops_container_app_env" {
-  name                       = "spiritops-container-app-env"
-  resource_group_name        = azurerm_resource_group.migrate_scope.name
-  location                   = "southindia"
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.workspaceaicloudbuilder9db5.id
-}
+resource "azurerm_monitor_action_group" "recommended_alert_rules_ag_6b460f" {
+  name                = "RecommendedAlertRules-AG-6b460f"
+  resource_group_name = azurerm_resource_group.migrate_scope.name
+  short_name          = "alert6b460f"
 
-resource "azurerm_container_app" "spiritops_app" {
-  name                         = "spiritops-app"
-  resource_group_name          = azurerm_resource_group.migrate_scope.name
-  container_app_environment_id = azurerm_container_app_environment.spiritops_container_app_env.id
-  revision_mode                = "Single"
-
-  template {
-    container {
-      name   = "spiritops-app"
-      image  = "spiritops.azurecr.io/spiritops-app:284"
-      cpu    = 0.5
-      memory = "1Gi"
-
-      env {
-        name  = "NODE_ENV"
-        value = "production"
-      }
-      env {
-        name  = "PORT"
-        value = "9005"
-      }
-      env {
-        name      = "DATABASE_URL"
-        secretRef = "database-url"
-      }
-      env {
-        name      = "JWT_SECRET"
-        secretRef = "jwt-secret"
-      }
-      env {
-        name      = "OPENAI_API_KEY"
-        secretRef = "openai-api-key"
-      }
-      env {
-        name      = "BITWARDEN_ACCESS_TOKEN"
-        secretRef = "bitwarden-access-token"
-      }
-      env {
-        name      = "BITWARDEN_PROJECT_ID"
-        secretRef = "bitwarden-project-id"
-      }
-
-      probes {
-        type              = "Liveness"
-        failure_threshold = 3
-        period_seconds    = 10
-        success_threshold = 1
-        tcp_socket {
-          port = 23040
-        }
-        timeout_seconds = 5
-      }
-      probes {
-        type              = "Readiness"
-        failure_threshold = 48
-        period_seconds    = 5
-        success_threshold = 1
-        tcp_socket {
-          port = 23040
-        }
-        timeout_seconds = 5
-      }
-      probes {
-        type                  = "Startup"
-        failure_threshold    = 240
-        initial_delay_seconds = 1
-        period_seconds        = 1
-        success_threshold     = 1
-        tcp_socket {
-          port = 23040
-        }
-        timeout_seconds = 3
-      }
-    }
-
-    scale {
-      min_replicas = 4
-      max_replicas = 10
-
-      rule {
-        name = "http-scaler"
-        http {
-          metadata = {
-            concurrentRequests = "10"
-          }
-        }
-      }
-    }
-
-    ingress {
-      external     = true
-      target_port  = 0
-      exposed_port = 0
-      transport    = "Auto"
-      traffic {
-        weight           = 100
-        latest_revision  = true
-      }
-      custom_domain {
-        name           = "www.spiritops.in"
-        certificate_id = "/subscriptions/be1b0fcb-1e30-4142-bb0c-ff52f7a1a0e5/resourceGroups/AICloudBuilder/providers/Microsoft.App/managedEnvironments/spiritops-container-app-env/managedCertificates/www.spiritops.in-spiritop-260227063125"
-        binding_type   = "SniEnabled"
-      }
-      allow_insecure = false
-      sticky_sessions {
-        affinity = "none"
-      }
-    }
+  email_receiver {
+    name                   = "Email_-EmailAction-"
+    email_address          = "jeffersonimmanuel5@gmail.com"
+    use_common_alert_schema = true
   }
 }
 
-resource "azurerm_dns_zone" "spiritops_in" {
-  name                = "spiritops.in"
+resource "azurerm_monitor_action_group" "application_insights_smart_detection" {
+  name                = "Application Insights Smart Detection"
   resource_group_name = azurerm_resource_group.migrate_scope.name
+  short_name          = "SmartDetect"
+
+  arm_role_receiver {
+    name                   = "Monitoring Contributor"
+    role_id                = "749f88d5-cbae-40b8-bcfc-e573ddc772fa"
+    use_common_alert_schema = true
+  }
+
+  arm_role_receiver {
+    name                   = "Monitoring Reader"
+    role_id                = "43d0d8ad-25c7-4714-9337-8ba259a9fe05"
+    use_common_alert_schema = true
+  }
+}
+
+resource "azurerm_service_plan" "asp_myresumeliverg_ade0" {
+  name                = "ASP-myresumeliverg-ade0"
+  resource_group_name = azurerm_resource_group.migrate_scope.name
+  location            = "centralindia"
+  os_type             = "Linux"
+  sku_name            = "F1"
+}
+
+resource "azurerm_application_insights" "jeffersonimmanuel" {
+  name                = "jeffersonimmanuel"
+  resource_group_name = azurerm_resource_group.migrate_scope.name
+  location            = "centralindia"
+  application_type    = "web"
+}
+
+resource "azurerm_linux_web_app" "jeffersonimmanuel" {
+  name                = "jeffersonimmanuel"
+  resource_group_name = azurerm_resource_group.migrate_scope.name
+  location            = "centralindia"
+  service_plan_id     = azurerm_service_plan.asp_myresumeliverg_ade0.id
+  https_only          = true
+  client_affinity_enabled = false
+
+  site_config {
+    application_stack {
+      node_version = "22-lts"
+    }
+  }
 }
