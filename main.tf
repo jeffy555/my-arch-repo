@@ -3,21 +3,26 @@ resource "azurerm_resource_group" "migrate_scope" {
   location = "southindia"
 }
 
-resource "azurerm_container_registry" "spiritops" {
-  name                         = "spiritops"
-  resource_group_name          = azurerm_resource_group.migrate_scope.name
-  location                     = "southindia"
-  sku                          = "Basic"
-  admin_enabled                = true
-  public_network_access_enabled = true
-}
-
 resource "azurerm_log_analytics_workspace" "workspaceaicloudbuilder9db5" {
   name                = "workspaceaicloudbuilder9db5"
   resource_group_name = azurerm_resource_group.migrate_scope.name
   location            = "southindia"
   sku                 = "PerGB2018"
   retention_in_days   = 30
+}
+
+resource "azurerm_container_registry" "spiritops" {
+  name                          = "spiritops"
+  resource_group_name           = azurerm_resource_group.migrate_scope.name
+  location                      = "southindia"
+  sku                           = "Basic"
+  admin_enabled                 = true
+  public_network_access_enabled = true
+}
+
+resource "azurerm_dns_zone" "spiritops_in" {
+  name                = "spiritops.in"
+  resource_group_name = azurerm_resource_group.migrate_scope.name
 }
 
 resource "azurerm_container_app_environment" "spiritops_container_app_env" {
@@ -65,9 +70,11 @@ resource "azurerm_container_app" "spiritops_app" {
   }
 
   ingress {
-    external       = true
-    target_port    = 9005
-    transport      = "Auto"
+    external_enabled = true
+    target_port                = 0
+    transport                  = "auto"
+    allow_insecure_connections = false
+
     traffic_weight {
       percentage      = 100
       latest_revision = true
@@ -75,13 +82,10 @@ resource "azurerm_container_app" "spiritops_app" {
   }
 
   template {
-    min_replicas = 4
-    max_replicas = 10
-
     container {
-      name  = "spiritops-app"
-      image = "spiritops.azurecr.io/spiritops-app:284"
-      cpu   = 0.5
+      name   = "spiritops-app"
+      image  = "spiritops.azurecr.io/spiritops-app:284"
+      cpu    = 0.5
       memory = "1Gi"
 
       env {
@@ -120,27 +124,35 @@ resource "azurerm_container_app" "spiritops_app" {
       }
 
       liveness_probe {
-        transport = "TCP"
-        port = 23040
-        interval_seconds = 10
+        transport         = "tcp"
+        port              = 23040
+        interval_seconds  = 10
+        timeout_seconds   = 5
+        success_threshold = 1
+        failure_threshold = 3
       }
 
       readiness_probe {
-        transport = "TCP"
-        port = 23040
-        interval_seconds = 5
+        transport         = "tcp"
+        port              = 23040
+        interval_seconds  = 5
+        timeout_seconds   = 5
+        success_threshold = 1
+        failure_threshold = 48
       }
 
       startup_probe {
-        transport = "TCP"
-        port = 23040
-        interval_seconds = 1
+        transport            = "tcp"
+        port                 = 23040
+        interval_seconds     = 1
+        timeout_seconds      = 3
+        success_threshold    = 1
+        failure_threshold    = 240
+        initial_delay_seconds = 1
       }
     }
-  }
-}
 
-resource "azurerm_dns_zone" "spiritops_in" {
-  name                = "spiritops.in"
-  resource_group_name = azurerm_resource_group.migrate_scope.name
+    min_replicas = 4
+    max_replicas = 10
+  }
 }
